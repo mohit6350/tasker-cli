@@ -38,6 +38,33 @@ public class Main {
             if(input.equalsIgnoreCase("--list-todo")){
                 showAllTodos();
             }
+
+            if(input.equalsIgnoreCase("--update")){
+                int id = -1;
+                String filed = null;
+                String fieldValue = null;
+
+                if(args[1] != null || args[1].length()>0){
+                    try{
+                        id = Integer.parseInt(args[1].trim());
+                    }catch (Exception e){
+                        System.out.println("Invalid task id: use --list to see all todos.");
+                    }
+                }
+                if(args[2] != null || args[2].length()>0){
+                    filed = args[2];
+                    if(args[3] != null || args[3].length()>0){
+                        fieldValue = args[3];
+                        if(updateTodo(id,filed,fieldValue));
+                    }else{
+                        System.out.println("Invalid update: format --update [id] [field] [field-value]");
+                    }
+                }else{
+                    System.out.println("Invalid description or empty value.");
+                }
+
+            }
+
             if(input.equalsIgnoreCase("--delete")){
                 int arguments = -1;
                 if(args[1] != null || args[1].length()>0){
@@ -52,6 +79,41 @@ public class Main {
                 }
             }
         }
+    }
+
+    public static boolean updateTodo(int id, String field, String fieldValue){
+        boolean flag = false;
+        loadPreviousData();
+        // check if the task exists with the id
+        if(tasksMap.containsKey(id)){
+            LocalDateTime currentDateTime = LocalDateTime.now();
+
+            // Define the date and time format
+            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+
+            // Format the date and time
+            String date = currentDateTime.format(dateFormatter);
+            String time = currentDateTime.format(timeFormatter);
+
+            // Combine date and time into a single string
+            String dateTime = date + " " + time;
+            Task t = tasksMap.get(id);
+            t.setUpdatedAt(dateTime);
+            if(field.equalsIgnoreCase("status")){
+                t.setStatus(fieldValue);
+            }
+            if(field.equalsIgnoreCase("description")){
+                t.setDescription(fieldValue);
+            }
+            tasksMap.put(id,t);
+            if(saveToFile(true)){
+                flag = true;
+            }
+
+        }
+
+        return flag;
     }
 
     public static boolean deleteTodo(int id) {
@@ -362,7 +424,7 @@ public class Main {
 
 
         // Save the updated task list to the file
-        if (saveToFile(false)) { // Set override to false to append new tasks
+        if (saveToFile(false)) {
             System.out.println("Task added successfully.");
         } else {
             System.out.println("Failed to save the task.");
