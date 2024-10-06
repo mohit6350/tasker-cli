@@ -3,19 +3,19 @@ package org.example;
 public class Task {
 
     private int id;
-    private String title;
-    private String data;
-    private String creationDate;
+    private String description;
+    private String createdAt;
+    private String updatedAt;
     private String status;
 
     public Task() {
     }
 
-    public Task(int id, String title, String data, String creationDate, String status) {
+    public Task(int id, String description, String createdAt, String updatedAt, String status) {
         this.id = id;
-        this.title = title;
-        this.data = data;
-        this.creationDate = creationDate;
+        this.description = description;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
         this.status = status;
     }
 
@@ -27,28 +27,28 @@ public class Task {
         this.id = id;
     }
 
-    public String getTitle() {
-        return title;
+    public String getDescription() {
+        return description;
     }
 
-    public void setTitle(String title) {
-        this.title = title;
+    public void setDescription(String description) {
+        this.description = description;
     }
 
-    public String getData() {
-        return data;
+    public String getCreatedAt() {
+        return createdAt;
     }
 
-    public void setData(String data) {
-        this.data = data;
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
     }
 
-    public String getCreationDate() {
-        return creationDate;
+    public String getUpdatedAt() {
+        return updatedAt;
     }
 
-    public void setCreationDate(String creationDate) {
-        this.creationDate = creationDate;
+    public void setUpdatedAt(String updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
     public String getStatus() {
@@ -63,9 +63,9 @@ public class Task {
     public String toString() {
         return "Task{" +
                 "id=" + id +
-                ", title='" + title + '\'' +
-                ", data='" + data + '\'' +
-                ", creationDate='" + creationDate + '\'' +
+                ", description='" + description + '\'' +
+                ", createdAt='" + createdAt + '\'' +
+                ", updatedAt='" + updatedAt + '\'' +
                 ", status='" + status + '\'' +
                 '}';
     }

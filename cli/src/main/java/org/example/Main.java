@@ -6,6 +6,7 @@ import java.io.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Main {
 
@@ -18,19 +19,67 @@ public class Main {
     public static void main(String[] args) {
         if (args.length > 0) {
             String input = args[0].trim();
-            if (input.equalsIgnoreCase("add")) {
+
+            if (input.equalsIgnoreCase("--add")) {
                 addTask();
             }
-            if (input.equalsIgnoreCase("show_all")) {
+            if (input.equalsIgnoreCase("--list")) {
                 showAllTasks();
             }
-            if(input.equalsIgnoreCase("help")){
+            if(input.equalsIgnoreCase("--help")){
                 showHelp();
+            }
+            if(input.equalsIgnoreCase("--list-done")){
+                showAllDone();
+            }
+            if(input.equalsIgnoreCase("--list-in-progress")){
+                showAllInProgress();
+            }
+            if(input.equalsIgnoreCase("--list-todo")){
+                showAllTodos();
+            }
+            if(input.equalsIgnoreCase("--delete")){
+                int arguments = -1;
+                if(args[1] != null || args[1].length()>0){
+                    try{
+                        arguments = Integer.parseInt(args[1].trim());
+                    }catch (Exception e){
+                        System.out.println("Invalid task id: use --list to see all todos.");
+                    }
+                }
+                if(deleteTodo(arguments)){
+                    System.out.println("Deleted successfully.");
+                }
             }
         }
     }
 
-    public static boolean saveToFile() {
+    public static boolean deleteTodo(int id) {
+        if (id < 0) {
+            System.out.println("Invalid ID.");
+            return false;
+        }
+
+        loadPreviousData(); // Load previous data into tasksMap
+        tasksMap.forEach((k,v) -> System.out.println(k+" : "+v));
+        if (tasksMap.containsKey(id)) {
+            // Remove the task from tasksMap and taskList
+            tasksMap.remove(id); // Remove from taskList
+            taskList = tasksMap.values().stream().collect(Collectors.toList());
+            // Save remaining tasks to the file
+            if (saveToFile(true)) { // Set override to true to save all tasks
+                System.out.println("Deleted successfully.");
+                return true;
+            }
+        } else {
+            System.out.println("Task with ID " + id + " does not exist.");
+        }
+        return false;
+    }
+
+
+
+    public static boolean saveToFile(boolean override) {
         boolean flag = false;
 
         try {
@@ -42,27 +91,66 @@ public class Main {
 
             File file = new File(currentPath + "tasks.json");
 
-            // If the file exists, read existing tasks
-            List<Task> existingTasks = new ArrayList<>();
-            if (file.exists()) {
-                // Read existing tasks from the file and add to the list
-                existingTasks = objectMapper.readValue(file, new TypeReference<List<Task>>() {});
+            // Prepare the tasks to save
+            List<Task> tasksToSave = new ArrayList<>();
+
+            if (override) {
+                // If overriding, save all tasks (this works fine)
+                tasksToSave.addAll(tasksMap.values()); // Collect all the tasks from tasksMap
+                objectMapper.writeValue(file, tasksToSave); // Write the tasks as an array
+                flag = true;
+                System.out.println("Tasks overwritten in JSON file successfully.");
+            } else {
+                // Read existing tasks if the file exists
+                if (file.exists()) {
+                    // Load existing tasks
+                    List<Task> existingTasks = objectMapper.readValue(file, new TypeReference<List<Task>>() {});
+
+                    // Add existing tasks to the tasksToSave list, ensuring no duplicates
+                    tasksToSave.addAll(existingTasks);
+
+                    // Now add only NEW tasks from tasksMap that are not already in the existing list
+                    for (Task newTask : tasksMap.values()) {
+                        boolean taskExists = false;
+
+                        // Check if this newTask already exists in the existingTasks
+                        for (Task existingTask : existingTasks) {
+                            if (newTask.getId() == existingTask.getId()) {
+                                taskExists = true;
+                                break;
+                            }
+                        }
+
+                        // If the task doesn't exist, add it
+                        if (!taskExists) {
+                            tasksToSave.add(newTask);
+                        }
+                    }
+                } else {
+                    // If the file doesn't exist, just add all tasks from tasksMap
+                    tasksToSave.addAll(tasksMap.values());
+                }
+
+                // Save the final list (existing + new)
+                objectMapper.writeValue(file, tasksToSave); // Write the updated list back to the file as an array
+                flag = true;
+                System.out.println("Tasks saved to JSON file successfully.");
             }
-
-            // Add new tasks to the existing list
-            existingTasks.addAll(taskList);
-
-            // Write the updated list back to the file
-            objectMapper.writeValue(file, existingTasks);
-
-            flag = true;
-            System.out.println("Tasks appended to JSON file successfully.");
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (IOException e) {
+            System.err.println("Error while saving tasks: " + e.getMessage());
         }
 
         return flag;
     }
+
+
+
+
+
+
+
+
+
 
 
     public static void showHelp() {
@@ -116,7 +204,7 @@ public class Main {
 
     public static void showAllTasks() {
         loadPreviousData();
-        if (tasksMap != null && tasksMap.size() > 0) {
+        if (tasksMap != null && !tasksMap.isEmpty()) {
             tasksMap.forEach((k, v) -> System.out.println(v)); // Print task object directly
         } else {
             System.out.println("No tasks to show...");
@@ -127,11 +215,92 @@ public class Main {
         return input != null && input.length() > 0;
     }
 
+    public static void showAllTodos(){
+        loadPreviousData();
+        if (tasksMap != null && tasksMap.size() > 0) {
+            tasksMap.entrySet().stream()
+                    .filter(entry -> entry.getValue().getStatus().equalsIgnoreCase("TODO"))
+                    .map(entry -> {
+                        int id = entry.getValue().getId();
+                        String status = entry.getValue().getStatus();
+                        String createdAt = entry.getValue().getCreatedAt();
+                        String updatedAt = entry.getValue().getUpdatedAt();
+                        String description = entry.getValue().getDescription();
+                        Task t = new Task();
+                        t.setId(id);
+                        t.setUpdatedAt(updatedAt);
+                        t.setCreatedAt(createdAt);
+                        t.setDescription(description);
+                        t.setStatus(status);
+
+                        return t;
+                    })
+                    .collect(Collectors.toList())
+                    .forEach(task -> System.out.println(task));
+        } else {
+            System.out.println("No tasks to show...");
+        }
+    }
+
+    public static void showAllInProgress(){
+        loadPreviousData();
+        if (tasksMap != null && tasksMap.size() > 0) {
+            tasksMap.entrySet().stream()
+                    .filter(entry -> entry.getValue().getStatus().equalsIgnoreCase("IN-PROGRESS"))
+                    .map(entry -> {
+                        int id = entry.getValue().getId();
+                        String status = entry.getValue().getStatus();
+                        String createdAt = entry.getValue().getCreatedAt();
+                        String updatedAt = entry.getValue().getUpdatedAt();
+                        String description = entry.getValue().getDescription();
+                        Task t = new Task();
+                        t.setId(id);
+                        t.setUpdatedAt(updatedAt);
+                        t.setCreatedAt(createdAt);
+                        t.setDescription(description);
+                        t.setStatus(status);
+
+                        return t;
+                    })
+                    .collect(Collectors.toList())
+                    .forEach(task -> System.out.println(task));
+        } else {
+            System.out.println("No tasks to show...");
+        }
+    }
+
+    public static void showAllDone(){
+        loadPreviousData();
+        if (tasksMap != null && tasksMap.size() > 0) {
+            tasksMap.entrySet().stream()
+                    .filter(entry -> entry.getValue().getStatus().equalsIgnoreCase("DONE"))
+                    .map(entry -> {
+                        int id = entry.getValue().getId();
+                        String status = entry.getValue().getStatus();
+                        String createdAt = entry.getValue().getCreatedAt();
+                        String updatedAt = entry.getValue().getUpdatedAt();
+                        String description = entry.getValue().getDescription();
+                        Task t = new Task();
+                        t.setId(id);
+                        t.setUpdatedAt(updatedAt);
+                        t.setCreatedAt(createdAt);
+                        t.setDescription(description);
+                        t.setStatus(status);
+
+                        return t;
+                    })
+                    .collect(Collectors.toList())
+                    .forEach(task -> System.out.println(task));
+        } else {
+            System.out.println("No tasks to show...");
+        }
+    }
+
     public static void addTask() {
-        System.out.print("Enter the title : ");
-        String title = scanner.nextLine();
-        System.out.println("Enter the task : ");
-        String data = scanner.nextLine();
+        System.out.print("Enter the description: ");
+        String description = scanner.nextLine();
+        System.out.println("Enter the status (leave blank for default TODO): ");
+        String status = scanner.nextLine();
         LocalDateTime currentDateTime = LocalDateTime.now();
 
         // Define the date and time format
@@ -144,19 +313,62 @@ public class Main {
 
         // Combine date and time into a single string
         String dateTime = date + " " + time;
+
+        // Check for empty description
+        if (!isValidInput(description)) {
+            System.out.println("Invalid input: Description cannot be empty. The default status is TODO: options [TODO, IN-PROGRESS, DONE]");
+            return;
+        }
+
+        // Check for existing task with the same description
+        loadPreviousData(); // Load existing tasks before adding a new one
+        for (Task task : taskList) {
+            if (task.getDescription().equalsIgnoreCase(description)) {
+                System.out.println("Task with this description already exists.");
+                return;
+            }
+        }
+
+        // Create and set up the new task
         Task task = new Task();
         task.setId(getKey());
-        task.setTitle(title);
-        task.setData(data);
-        task.setCreationDate(dateTime);
-        task.setStatus("NOT DONE");
+        task.setDescription(description);
 
-        if (isValidInput(data)) {
-            taskList.add(task);
-            saveToFile();  // Save to JSON file after adding a task
+        // Set status to TODO if not provided
+        if (status == null || status.isEmpty()) {
+            task.setStatus("TODO");
+        } else {
+            switch (status.toUpperCase().trim()) {
+                case "TODO":
+                case "IN-PROGRESS":
+                case "DONE":
+                    task.setStatus(status.toUpperCase().trim());
+                    break;
+                default:
+                    System.out.println("Invalid status option: valid options are [TODO, IN-PROGRESS, DONE]");
+                    return;
+            }
+        }
+
+        task.setCreatedAt(dateTime);
+        task.setUpdatedAt(dateTime);
+
+        // Add the new task to the list and map
+        taskList.add(task);
+
+        taskList.forEach(t -> System.out.println(t));
+        tasksMap.put(task.getId(), task); // Also add to the tasks map for easy access
+
+
+
+        // Save the updated task list to the file
+        if (saveToFile(false)) { // Set override to false to append new tasks
             System.out.println("Task added successfully.");
         } else {
-            System.out.println("Invalid input: Task cannot be empty.");
+            System.out.println("Failed to save the task.");
         }
     }
+
+
+
 }
