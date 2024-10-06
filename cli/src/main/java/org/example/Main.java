@@ -103,8 +103,11 @@ public class Main {
             if(field.equalsIgnoreCase("status")){
                 t.setStatus(fieldValue);
             }
-            if(field.equalsIgnoreCase("description")){
+            else if(field.equalsIgnoreCase("description")){
                 t.setDescription(fieldValue);
+            }
+            else{
+                System.out.println("Invalid field "+field+". Options [status | description]");
             }
             tasksMap.put(id,t);
             if(saveToFile(true)){
